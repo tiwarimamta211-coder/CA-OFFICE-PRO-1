@@ -1,0 +1,655 @@
+import { useState, useRef, useEffect } from "react";
+
+const MODES = [
+  {
+    id: "faceless",
+    icon: "🎭",
+    label: "Faceless YouTube",
+    sublabel: "Stock footage + AI voiceover",
+    color: "#ff6b35",
+    gradient: "linear-gradient(135deg,#ff6b35,#f7c948)",
+    desc: "Camera नहीं चाहिए। Stock footage + voiceover से complete video plan।",
+  },
+  {
+    id: "explainer",
+    icon: "🎨",
+    label: "Explainer / Slides",
+    sublabel: "Presentation style video",
+    color: "#00c9a7",
+    gradient: "linear-gradient(135deg,#00c9a7,#00b4d8)",
+    desc: "Canva / PowerPoint में बनाने के लिए slide-by-slide storyboard।",
+  },
+  {
+    id: "talkinghead",
+    icon: "🎤",
+    label: "Talking Head",
+    sublabel: "Camera pe bolne ke liye",
+    color: "#a855f7",
+    gradient: "linear-gradient(135deg,#a855f7,#6c63ff)",
+    desc: "Camera के सामने बोलने के लिए teleprompter-ready script + cues।",
+  },
+];
+
+const NICHES = ["Finance & CA", "Tech & AI", "Education", "Health", "Business", "Lifestyle", "Motivation", "Cooking", "Travel", "Gaming"];
+const DURATIONS = ["3 min (Short)", "5 min", "8 min", "10 min", "15 min", "20 min", "30 min"];
+const LANGUAGES = ["Hindi", "English", "Hinglish (Hindi+English)"];
+
+function buildPrompt(mode, topic, niche, duration, language, audience, keywords) {
+  const lang = language === "Hindi" ? "Hindi (Devanagari script)" : language === "Hinglish (Hindi+English)" ? "Hinglish - mix of Hindi and English, casual and natural" : "English";
+
+  if (mode === "faceless") {
+    return `You are an expert faceless YouTube video producer. Create a COMPLETE production kit in ${lang}.
+
+Topic: ${topic}
+Niche: ${niche}
+Duration: ${duration}
+Audience: ${audience || "General viewers"}
+Keywords: ${keywords || "auto-select"}
+
+Generate this FULL production kit:
+
+## 🎬 VIDEO TITLE OPTIONS (5 options, SEO optimized)
+
+## 📋 SCENE-BY-SCENE STORYBOARD
+For each scene provide:
+- Scene number & timestamp
+- VOICEOVER TEXT (exact words to speak or send to AI voice tool)
+- STOCK FOOTAGE KEYWORD (search this on Pexels/Pixabay)
+- ON-SCREEN TEXT (text overlay)
+- DURATION (seconds)
+- MOOD/MUSIC (background music type)
+
+Create 10-15 scenes for the full video.
+
+## 🎙️ COMPLETE VOICEOVER SCRIPT
+Full narration text ready to paste into ElevenLabs/Murf.ai. Add [PAUSE] markers.
+
+## 🎵 MUSIC RECOMMENDATIONS
+3 specific free music suggestions from YouTube Audio Library
+
+## 📝 YOUTUBE UPLOAD PACKAGE
+- Full Description (500+ words)
+- 25 Tags
+- 5 Hashtags
+- Thumbnail concept
+
+## ✅ STEP-BY-STEP PRODUCTION CHECKLIST
+How to actually make this video using free tools only`;
+  }
+
+  if (mode === "explainer") {
+    return `You are an expert explainer video creator. Create a COMPLETE slide-by-slide production kit in ${lang}.
+
+Topic: ${topic}
+Niche: ${niche}
+Duration: ${duration}
+Audience: ${audience || "General viewers"}
+Keywords: ${keywords || "auto-select"}
+
+Generate this FULL production kit:
+
+## 🎬 VIDEO TITLE OPTIONS (5 options)
+
+## 🖼️ SLIDE-BY-SLIDE STORYBOARD
+For each slide provide:
+- Slide number & timestamp
+- SLIDE TITLE (heading text, max 8 words)
+- SLIDE CONTENT (bullet points, max 4 points)
+- BACKGROUND COLOR/STYLE suggestion
+- ICON/IMAGE suggestion
+- NARRATION (exact words to speak while this slide shows)
+- ANIMATION suggestion (fade in, zoom, etc.)
+- DURATION (seconds)
+
+Create 12-18 slides.
+
+## 🎨 DESIGN THEME
+- Color palette (hex codes)
+- Font recommendations
+- Overall visual style
+
+## 🎙️ FULL NARRATION SCRIPT
+Complete voiceover text for entire video
+
+## 📤 CANVA / POWERPOINT INSTRUCTIONS
+Step-by-step how to build this in Canva (free)
+
+## 📝 YOUTUBE UPLOAD PACKAGE
+- Description, Tags, Hashtags, Thumbnail idea
+
+## ✅ FREE TOOLS CHECKLIST
+Complete list of free tools to use`;
+  }
+
+  if (mode === "talkinghead") {
+    return `You are an expert YouTube coach and scriptwriter. Create a COMPLETE talking head video kit in ${lang}.
+
+Topic: ${topic}
+Niche: ${niche}
+Duration: ${duration}
+Audience: ${audience || "General viewers"}
+Keywords: ${keywords || "auto-select"}
+
+Generate this FULL production kit:
+
+## 🎬 VIDEO TITLE OPTIONS (5 options, viral + SEO)
+
+## 🎯 PRE-SHOOT CHECKLIST
+- Camera setup tips
+- Lighting setup
+- Audio tips
+- Background suggestions
+- Outfit/appearance tips
+
+## 📝 TELEPROMPTER SCRIPT
+Full word-by-word script formatted for teleprompter reading. Include:
+- [SMILE] markers
+- [PAUSE] markers  
+- [LOOK LEFT/RIGHT] B-roll cut cues
+- [GESTURE] body language tips
+- [ENERGY UP/DOWN] tone markers
+- Timestamps every 2 minutes
+
+Sections:
+1. HOOK (0:00-0:45) - exact words
+2. INTRO (0:45-2:00) - exact words
+3. MAIN CONTENT (2:00-end) - exact words per section
+4. OUTRO + CTA - exact words
+
+## 💡 B-ROLL SHOT LIST
+10-15 B-roll shots to cut away to while speaking
+
+## 🎬 EDITING GUIDE
+Step-by-step CapCut editing instructions for this video
+
+## 📝 YOUTUBE UPLOAD PACKAGE
+- Description, Tags, Hashtags
+
+## 🖼️ THUMBNAIL CONCEPTS
+3 detailed thumbnail ideas with exact text overlay`;
+  }
+}
+
+const TabButton = ({ active, onClick, children, color }) => (
+  <button
+    onClick={onClick}
+    style={{
+      padding: "8px 18px",
+      borderRadius: 8,
+      border: "none",
+      background: active ? `${color}22` : "transparent",
+      color: active ? color : "#555",
+      fontWeight: 700,
+      fontSize: 12,
+      cursor: "pointer",
+      fontFamily: "inherit",
+      transition: "all 0.2s",
+      borderBottom: active ? `2px solid ${color}` : "2px solid transparent",
+    }}
+  >
+    {children}
+  </button>
+);
+
+export default function VideoProductionKit() {
+  const [mode, setMode] = useState("faceless");
+  const [topic, setTopic] = useState("");
+  const [niche, setNiche] = useState("Finance & CA");
+  const [duration, setDuration] = useState("10 min");
+  const [language, setLanguage] = useState("Hinglish (Hindi+English)");
+  const [audience, setAudience] = useState("");
+  const [keywords, setKeywords] = useState("");
+  const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState("output");
+  const outputRef = useRef(null);
+  const currentMode = MODES.find(m => m.id === mode);
+
+  useEffect(() => {
+    if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
+  }, [output]);
+
+  const PROGRESS_STEPS = {
+    faceless: ["Storyboard बना रहे हैं...", "Voiceover script लिख रहे हैं...", "Music & footage suggest कर रहे हैं...", "YouTube package तैयार कर रहे हैं...", "Checklist बना रहे हैं..."],
+    explainer: ["Slides plan कर रहे हैं...", "Narration लिख रहे हैं...", "Design theme बना रहे हैं...", "Canva instructions तैयार कर रहे हैं...", "Upload package बना रहे हैं..."],
+    talkinghead: ["Teleprompter script लिख रहे हैं...", "B-roll list तैयार कर रहे हैं...", "Editing guide बना रहे हैं...", "Pre-shoot checklist तैयार कर रहे हैं...", "YouTube package बना रहे हैं..."],
+  };
+
+  const handleGenerate = async () => {
+    if (!topic.trim()) return;
+    setLoading(true);
+    setOutput("");
+    setProgress(0);
+    setActiveTab("output");
+
+    const steps = PROGRESS_STEPS[mode];
+    let step = 0;
+    setProgressLabel(steps[0]);
+    const interval = setInterval(() => {
+      step++;
+      if (step < steps.length) setProgressLabel(steps[step]);
+      setProgress(p => Math.min(p + Math.random() * 15 + 5, 92));
+    }, 2500);
+
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 6000,
+          stream: true,
+          messages: [{ role: "user", content: buildPrompt(mode, topic, niche, duration, language, audience, keywords) }],
+        }),
+      });
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let full = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        for (const line of decoder.decode(value).split("\n")) {
+          if (line.startsWith("data: ")) {
+            try {
+              const d = JSON.parse(line.slice(6));
+              if (d.type === "content_block_delta" && d.delta?.text) {
+                full += d.delta.text;
+                setOutput(full);
+              }
+            } catch {}
+          }
+        }
+      }
+
+      clearInterval(interval);
+      setProgress(100);
+      setProgressLabel("✅ Complete!");
+    } catch (err) {
+      clearInterval(interval);
+      setOutput("❌ Error: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([output], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${mode}_${topic.slice(0, 25).replace(/\s/g, "_")}.txt`;
+    a.click();
+  };
+
+  const words = output.split(/\s+/).filter(Boolean).length;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#08080f", fontFamily: "'Nunito', 'Segoe UI', sans-serif", color: "#e0e0f0" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #08080f; }
+        ::-webkit-scrollbar-thumb { background: #1e1e30; border-radius: 3px; }
+        input, select, textarea {
+          background: rgba(255,255,255,0.04) !important;
+          border: 1px solid rgba(255,255,255,0.08) !important;
+          border-radius: 10px; color: #e0e0f0 !important;
+          padding: 10px 14px; font-family: 'Nunito', sans-serif;
+          font-size: 13px; outline: none; width: 100%;
+          transition: border-color 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: rgba(255,107,53,0.5) !important; }
+        select option { background: #12121e; }
+        label { display: block; font-size: 10px; font-weight: 800; color: #444; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 5px; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes glow { 0%,100%{box-shadow:0 0 20px rgba(255,107,53,0.3)} 50%{box-shadow:0 0 40px rgba(255,107,53,0.6)} }
+        .mode-card {
+          border-radius: 16px; padding: 18px; cursor: pointer;
+          border: 2px solid rgba(255,255,255,0.05);
+          transition: all 0.25s; background: rgba(255,255,255,0.02);
+          position: relative; overflow: hidden;
+        }
+        .mode-card:hover { transform: translateY(-3px); border-color: rgba(255,255,255,0.12); }
+        .mode-card.active { border-color: rgba(255,107,53,0.5); background: rgba(255,107,53,0.06); animation: glow 2s ease infinite; }
+        .gen-btn {
+          width: 100%; padding: 14px; border: none; border-radius: 14px;
+          font-size: 15px; font-weight: 800; cursor: pointer;
+          font-family: 'Nunito', sans-serif; transition: all 0.25s; letter-spacing: 0.3px;
+        }
+        .gen-btn:not(:disabled):hover { transform: translateY(-3px); box-shadow: 0 15px 40px rgba(0,0,0,0.4); }
+        .gen-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none !important; }
+        .action-btn {
+          padding: 8px 16px; border-radius: 9px; font-size: 12px;
+          font-weight: 700; cursor: pointer; font-family: 'Nunito', sans-serif;
+          transition: all 0.15s; border: 1.5px solid;
+        }
+        .action-btn:hover { transform: translateY(-1px); }
+        .output-text {
+          white-space: pre-wrap; font-family: 'Fira Code', monospace;
+          font-size: 12.5px; line-height: 1.9; color: #c8c8e0;
+        }
+        .free-tool-card {
+          background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+        }
+        .stat-pill {
+          background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; color: #666;
+        }
+      `}</style>
+
+      {/* HEADER */}
+      <div style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: "16px 28px", display: "flex", alignItems: "center", gap: 14, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ width: 42, height: 42, background: "linear-gradient(135deg,#ff6b35,#f7c948)", borderRadius: 13, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>🎬</div>
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.5px" }}>Video Production Kit</div>
+          <div style={{ fontSize: 10, color: "#444", letterSpacing: "1px", fontWeight: 700 }}>3-IN-1 FREE VIDEO CREATOR — AI POWERED</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {["🎭 Faceless", "🎨 Explainer", "🎤 Talking Head"].map(t => (
+            <span key={t} className="stat-pill">{t}</span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", minHeight: "calc(100vh - 74px)" }}>
+
+        {/* LEFT PANEL */}
+        <div style={{ borderRight: "1px solid rgba(255,255,255,0.05)", padding: "20px 16px", overflowY: "auto", maxHeight: "calc(100vh - 74px)", display: "flex", flexDirection: "column", gap: 18 }}>
+
+          {/* Mode Selection */}
+          <div>
+            <label>Video Type चुनें</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+              {MODES.map(m => (
+                <div key={m.id} className={`mode-card ${mode === m.id ? "active" : ""}`} onClick={() => { setMode(m.id); setOutput(""); }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                    <span style={{ fontSize: 24 }}>{m.icon}</span>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: mode === m.id ? "#fff" : "#bbb" }}>{m.label}</div>
+                      <div style={{ fontSize: 10, color: mode === m.id ? m.color : "#555", fontWeight: 600 }}>{m.sublabel}</div>
+                    </div>
+                    {mode === m.id && <div style={{ marginLeft: "auto", width: 8, height: 8, borderRadius: "50%", background: m.color, flexShrink: 0 }} />}
+                  </div>
+                  {mode === m.id && <div style={{ fontSize: 11, color: "#777", lineHeight: 1.6 }}>{m.desc}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Inputs */}
+          <div>
+            <label>Video Topic *</label>
+            <textarea rows={3} placeholder="e.g. GST filing mistakes जो small business करते हैं" value={topic} onChange={e => setTopic(e.target.value)} style={{ resize: "vertical" }} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div>
+              <label>Niche</label>
+              <select value={niche} onChange={e => setNiche(e.target.value)}>
+                {NICHES.map(n => <option key={n}>{n}</option>)}
+              </select>
+            </div>
+            <div>
+              <label>Duration</label>
+              <select value={duration} onChange={e => setDuration(e.target.value)}>
+                {DURATIONS.map(d => <option key={d}>{d}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label>Language</label>
+            <select value={language} onChange={e => setLanguage(e.target.value)}>
+              {LANGUAGES.map(l => <option key={l}>{l}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label>Target Audience (optional)</label>
+            <input placeholder="e.g. Small business owners, CA students" value={audience} onChange={e => setAudience(e.target.value)} />
+          </div>
+
+          <div>
+            <label>Keywords (optional)</label>
+            <input placeholder="e.g. GST return, tax filing 2025" value={keywords} onChange={e => setKeywords(e.target.value)} />
+          </div>
+
+          {/* Generate Button */}
+          <button
+            className="gen-btn"
+            onClick={handleGenerate}
+            disabled={loading || !topic.trim()}
+            style={{ background: loading ? "rgba(255,107,53,0.2)" : currentMode.gradient, color: "white" }}
+          >
+            {loading ? (
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <span style={{ width: 16, height: 16, border: "2.5px solid white", borderTopColor: "transparent", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+                Kit बना रहे हैं...
+              </span>
+            ) : `${currentMode.icon} Generate Production Kit`}
+          </button>
+
+          {/* Progress */}
+          {loading && (
+            <div style={{ animation: "fadeUp 0.3s ease" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, fontSize: 11 }}>
+                <span style={{ color: currentMode.color, fontWeight: 700, animation: "pulse 1.5s infinite" }}>{progressLabel}</span>
+                <span style={{ color: "#444" }}>{Math.round(progress)}%</span>
+              </div>
+              <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${progress}%`, background: currentMode.gradient, borderRadius: 3, transition: "width 0.6s ease" }} />
+              </div>
+            </div>
+          )}
+
+          {/* Free Tools Guide */}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", paddingTop: 16 }}>
+            <label>Free Tools जो चाहिए</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+              {mode === "faceless" && [
+                ["🎵", "ElevenLabs.io", "AI Voiceover (free tier)"],
+                ["📹", "Pexels.com", "Free stock footage"],
+                ["✂️", "CapCut PC", "Video editing (free)"],
+                ["🖼️", "Canva", "Thumbnail बनाएं"],
+              ].map(([icon, name, desc]) => (
+                <div key={name} className="free-tool-card">
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#ccc" }}>{name}</div>
+                    <div style={{ fontSize: 10, color: "#555" }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+              {mode === "explainer" && [
+                ["🎨", "Canva.com", "Slides बनाएं (free)"],
+                ["🎙️", "Murf.ai", "AI voiceover (free tier)"],
+                ["✂️", "CapCut / Loom", "Screen record करें"],
+                ["🎵", "YouTube Audio Library", "Free background music"],
+              ].map(([icon, name, desc]) => (
+                <div key={name} className="free-tool-card">
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#ccc" }}>{name}</div>
+                    <div style={{ fontSize: 10, color: "#555" }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+              {mode === "talkinghead" && [
+                ["📱", "Mobile Camera", "1080p में record करें"],
+                ["🔦", "Ring Light", "₹500-800 में मिलती है"],
+                ["🎙️", "Lapel Mic", "₹500-1500 Amazon पर"],
+                ["✂️", "CapCut PC", "Edit करें (free)"],
+                ["📺", "PromptSmart App", "Teleprompter (free)"],
+              ].map(([icon, name, desc]) => (
+                <div key={name} className="free-tool-card">
+                  <span style={{ fontSize: 18, flexShrink: 0 }}>{icon}</span>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#ccc" }}>{name}</div>
+                    <div style={{ fontSize: 10, color: "#555" }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT PANEL */}
+        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+          {/* Output Toolbar */}
+          <div style={{ padding: "14px 22px", borderBottom: "1px solid rgba(255,255,255,0.05)", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 2 }}>
+              <TabButton active={activeTab === "output"} onClick={() => setActiveTab("output")} color={currentMode.color}>📄 Production Kit</TabButton>
+              <TabButton active={activeTab === "guide"} onClick={() => setActiveTab("guide")} color={currentMode.color}>📋 How to Use</TabButton>
+            </div>
+
+            {output && (
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+                <span className="stat-pill">~{words} words</span>
+                <button className="action-btn" onClick={handleCopy} style={{ background: copied ? "rgba(38,222,129,0.1)" : "rgba(255,255,255,0.04)", borderColor: copied ? "rgba(38,222,129,0.3)" : "rgba(255,255,255,0.1)", color: copied ? "#26de81" : "#999" }}>
+                  {copied ? "✅ Copied!" : "📋 Copy"}
+                </button>
+                <button className="action-btn" onClick={handleDownload} style={{ background: `${currentMode.color}15`, borderColor: `${currentMode.color}40`, color: currentMode.color }}>
+                  ⬇️ Download
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Output Area */}
+          <div ref={outputRef} style={{ flex: 1, overflowY: "auto", padding: "22px 26px" }}>
+            {activeTab === "output" && (
+              output ? (
+                <div className="output-text" style={{ animation: "fadeUp 0.3s ease" }}>
+                  {output}
+                  {loading && <span style={{ color: currentMode.color, animation: "pulse 0.8s infinite" }}>▌</span>}
+                </div>
+              ) : (
+                <div style={{ height: "100%", minHeight: 400, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 20, opacity: 0.4 }}>
+                  <div style={{ fontSize: 72 }}>{currentMode.icon}</div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#888", marginBottom: 8 }}>{currentMode.label} Kit तैयार होगा यहाँ</div>
+                    <div style={{ fontSize: 13, color: "#555", maxWidth: 340, lineHeight: 1.6 }}>{currentMode.desc}</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                    {["Storyboard ✓", "Script ✓", "SEO Package ✓", "Checklist ✓"].map(t => (
+                      <span key={t} className="stat-pill">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )
+            )}
+
+            {activeTab === "guide" && (
+              <div style={{ maxWidth: 680, animation: "fadeUp 0.3s ease" }}>
+                <div style={{ fontSize: 20, fontWeight: 900, marginBottom: 20 }}>
+                  {currentMode.icon} {currentMode.label} — Step by Step Guide
+                </div>
+
+                {mode === "faceless" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {[
+                      ["1️⃣", "Kit Generate करें", "Topic भरें → Generate करें → पूरा storyboard + voiceover script मिलेगा"],
+                      ["2️⃣", "Voiceover बनाएं", "ElevenLabs.io पर जाएं → script paste करें → AI voice download करें (free tier में 10,000 chars/month)"],
+                      ["3️⃣", "Stock Footage लें", "Pexels.com → हर scene का keyword search करें → MP4 download करें"],
+                      ["4️⃣", "CapCut में Edit करें", "New project → footage import करें → voiceover add करें → on-screen text लगाएं → music add करें"],
+                      ["5️⃣", "Thumbnail बनाएं", "Canva.com → YouTube Thumbnail template → concept use करें → download"],
+                      ["6️⃣", "YouTube Upload", "Title + Description + Tags → Kit से copy-paste करें → Publish!"],
+                    ].map(([num, title, desc]) => (
+                      <div key={title} style={{ display: "flex", gap: 14, padding: "14px 16px", background: "rgba(255,107,53,0.05)", border: "1px solid rgba(255,107,53,0.12)", borderRadius: 12 }}>
+                        <span style={{ fontSize: 24, flexShrink: 0 }}>{num}</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{title}</div>
+                          <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6 }}>{desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {mode === "explainer" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {[
+                      ["1️⃣", "Kit Generate करें", "Topic भरें → Slide-by-slide storyboard + narration मिलेगी"],
+                      ["2️⃣", "Canva में Slides बनाएं", "Canva.com → YouTube Video template (1920×1080) → हर slide का content add करें → design theme follow करें"],
+                      ["3️⃣", "Narration Record करें", "Loom या OBS से screen record करें + mic से narration दें। या Murf.ai में paste करें"],
+                      ["4️⃣", "Video Export करें", "Canva → Present and Record → सब record हो जाएगा। या slides export करके CapCut में voiceover add करें"],
+                      ["5️⃣", "Edit & Polish", "CapCut में cut करें → transitions → background music add करें"],
+                      ["6️⃣", "Upload", "Kit से Title + Description + Tags copy करें → YouTube पर upload!"],
+                    ].map(([num, title, desc]) => (
+                      <div key={title} style={{ display: "flex", gap: 14, padding: "14px 16px", background: "rgba(0,201,167,0.05)", border: "1px solid rgba(0,201,167,0.12)", borderRadius: 12 }}>
+                        <span style={{ fontSize: 24, flexShrink: 0 }}>{num}</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{title}</div>
+                          <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6 }}>{desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {mode === "talkinghead" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {[
+                      ["1️⃣", "Kit Generate करें", "Topic भरें → Teleprompter script + B-roll list + editing guide मिलेगी"],
+                      ["2️⃣", "Setup करें", "Mobile को tripod पर रखें → window के सामने → lapel mic लगाएं → background clean रखें"],
+                      ["3️⃣", "Teleprompter Use करें", "PromptSmart app में script paste करें → phone को camera के सामने रखें → पढ़ते हुए record करें"],
+                      ["4️⃣", "B-Roll Record करें", "Script में बताए B-roll shots record करें (hands, screen, objects)"],
+                      ["5️⃣", "CapCut में Edit करें", "Main footage + B-roll काटें → captions add करें → music → color grade → export"],
+                      ["6️⃣", "Thumbnail + Upload", "Canva में thumbnail बनाएं → Kit से SEO copy करें → YouTube upload!"],
+                    ].map(([num, title, desc]) => (
+                      <div key={title} style={{ display: "flex", gap: 14, padding: "14px 16px", background: "rgba(168,85,247,0.05)", border: "1px solid rgba(168,85,247,0.12)", borderRadius: 12 }}>
+                        <span style={{ fontSize: 24, flexShrink: 0 }}>{num}</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>{title}</div>
+                          <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6 }}>{desc}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ marginTop: 24, padding: "16px 20px", background: "rgba(247,201,72,0.06)", border: "1px solid rgba(247,201,72,0.15)", borderRadius: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#f7c948", marginBottom: 8 }}>⏱️ Total Time Estimate</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                    {mode === "faceless" && [["Kit Generate", "1 min"], ["Voiceover + Footage", "30 min"], ["CapCut Edit", "60 min"]].map(([k, v]) => (
+                      <div key={k} style={{ textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 10 }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#f7c948" }}>{v}</div>
+                        <div style={{ fontSize: 10, color: "#666", marginTop: 3 }}>{k}</div>
+                      </div>
+                    ))}
+                    {mode === "explainer" && [["Kit Generate", "1 min"], ["Canva Slides", "45 min"], ["Record + Edit", "30 min"]].map(([k, v]) => (
+                      <div key={k} style={{ textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 10 }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#f7c948" }}>{v}</div>
+                        <div style={{ fontSize: 10, color: "#666", marginTop: 3 }}>{k}</div>
+                      </div>
+                    ))}
+                    {mode === "talkinghead" && [["Kit Generate", "1 min"], ["Setup + Record", "45 min"], ["CapCut Edit", "60 min"]].map(([k, v]) => (
+                      <div key={k} style={{ textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 10 }}>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: "#f7c948" }}>{v}</div>
+                        <div style={{ fontSize: 10, color: "#666", marginTop: 3 }}>{k}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
